@@ -15,10 +15,12 @@
  */
 package io.gravitee.repository.jdbc.management;
 
+import io.gravitee.common.data.domain.Page;
 import io.gravitee.repository.exceptions.TechnicalException;
 import io.gravitee.repository.jdbc.orm.JdbcColumn;
 import io.gravitee.repository.jdbc.orm.JdbcObjectMapper;
 import io.gravitee.repository.management.api.PageRevisionRepository;
+import io.gravitee.repository.management.api.search.Pageable;
 import io.gravitee.repository.management.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +59,24 @@ public class JdbcPageRevisionRepository implements PageRevisionRepository {
             .addColumn("contributor", Types.NVARCHAR, String.class)
             .addColumn("created_at", Types.TIMESTAMP, Date.class)
             .build();
+
+    @Override
+    public Page<PageRevision> findAll(Pageable pageable) throws TechnicalException {
+        String rowCountSql = "SELECT count(1) AS row_count FROM page_revisions";
+        int total = jdbcTemplate.queryForObject(
+                        rowCountSql,
+                        (rs, rowNum) -> rs.getInt(1));
+
+        String querySql = "SELECT * FROM page_revisions " +
+                "LIMIT " + pageable.pageSize() + " " +
+                "OFFSET " + pageable.from();
+        List<PageRevision> revisions = jdbcTemplate.query(
+                querySql,
+                ORM.getRowMapper()
+        );
+
+        return new Page<>(revisions, pageable.pageNumber(), revisions.size(), total);
+    }
 
     @Override
     public Optional<PageRevision> findById(String pageId, int revision) throws TechnicalException {
